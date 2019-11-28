@@ -88,7 +88,7 @@ func CheckPassword(username string, password string) (valid bool, err error) {
 	}
 
 	if banned {
-		return false, errors.New("User is banned")
+		return false, errors.New("Your account has been banned")
 	}
 
 	valid, err = argon2id.ComparePasswordAndHash(password, saltyhash)
