@@ -29,8 +29,7 @@ func CreateAccount(ctx context.Context, request events.APIGatewayProxyRequest) (
 			r.StatusCode = 400
 			r.Message = err.Error()
 		} else {
-			r.StatusCode = 200
-			r.Message = "Account created"
+			r.StatusCode = 204
 		}
 	}
 
