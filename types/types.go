@@ -22,6 +22,7 @@ type LeaderboardRequest struct {
 // LeaderboardRow described a single row from a leaderboard
 type LeaderboardRow struct {
 	Rank   int     `json:"rank"`
+	OutOf  int     `json:"outof"`
 	Name   string  `json:"name"`
 	Wins   int     `json:"wins"`
 	Ratio  float32 `json:"ratio"`
@@ -31,8 +32,9 @@ type LeaderboardRow struct {
 }
 
 // Fill will fill a leaderboard row with the provided info
-func (row *LeaderboardRow) Fill(name string, rank int, wins int, ratio float32, draws int, losses int, played int) {
+func (row *LeaderboardRow) Fill(name string, rank int, outof int, wins int, ratio float32, draws int, losses int, played int) {
 	row.Rank = rank
+	row.OutOf = outof
 	row.Name = name
 	row.Wins = wins
 	row.Ratio = ratio

@@ -38,6 +38,7 @@ var psCheckAuth = fmt.Sprintf("SELECT `saltedpasswordhash`, `banned` FROM `%v`.`
 var psGetTopN = fmt.Sprintf("SELECT FIND_IN_SET(`wins`, (SELECT GROUP_CONCAT(`wins` ORDER BY `wins` DESC) FROM `%[1]v`.`%[2]v`)) AS `rank`, `name`, `wins`, IFNULL(`winratio`, 0) AS `winratio`, `draws`, `losses`, `played` FROM `%[1]v`.`%[2]v` ORDER BY `rank` LIMIT ?;", dbname, dbtable)
 var psGetUser = fmt.Sprintf("SELECT FIND_IN_SET(`wins`, (SELECT GROUP_CONCAT(`wins` ORDER BY `wins` DESC) FROM `%[1]v`.`%[2]v`)) AS `rank`, `wins`, IFNULL(`winratio`, 0) AS `winratio`, `draws`, `losses`, `played` FROM `%[1]v`.`%[2]v` WHERE `name` = ?;", dbname, dbtable)
 var psUpdateUser = fmt.Sprintf("UPDATE `%v`.`%v` SET `wins` = (`wins` + ?), `draws` = (`draws` + ?), `losses` = (`losses` + ?) WHERE `name` = ?;", dbname, dbtable)
+var psCount = fmt.Sprintf("SELECT COUNT(*) FROM `%v`.`%v`;", dbname, dbtable)
 var connString = fmt.Sprintf("%v:%v@(%v:%v)/%v?tls=skip-verify", dbuser, dbpass, dburl, dbport, dbname)
 
 // Init should be called at the start of the function to open a connection to the database
@@ -164,7 +165,20 @@ func GetLeaderboard(username string, maxResults int) (leaderboard types.Leaderbo
 		return leaderboard, err
 	}
 
-	leaderboard.User.Fill(username, rank, wins, ratio, draws, losses, played)
+	statement, err = db.Prepare(psCount)
+	if err != nil {
+		return leaderboard, err
+	}
+
+	defer statement.Close()
+
+	var outof int
+	err = statement.QueryRow().Scan(&outof)
+	if err != nil {
+		return leaderboard, err
+	}
+
+	leaderboard.User.Fill(username, rank, outof, wins, ratio, draws, losses, played)
 
 	statement, err = db.Prepare(psGetTopN)
 	if err != nil {
@@ -187,7 +201,7 @@ func GetLeaderboard(username string, maxResults int) (leaderboard types.Leaderbo
 		}
 
 		var row = types.LeaderboardRow{}
-		row.Fill(name, rank, wins, ratio, draws, losses, played)
+		row.Fill(name, rank, outof, wins, ratio, draws, losses, played)
 		leaderboard.Leaderboard = append(leaderboard.Leaderboard, row)
 	}
 
