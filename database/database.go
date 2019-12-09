@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"../types"
+
 	"github.com/alexedwards/argon2id"
 	_ "github.com/go-sql-driver/mysql" // mysql driver
 	"github.com/rs/xid"
@@ -31,9 +33,10 @@ var dbport = os.Getenv("db_port")
 var dbname = os.Getenv("db_name")
 var dbtable = os.Getenv("db_table")
 var psCreateAccount = fmt.Sprintf("INSERT INTO `%v`.`%v` (`user_id`, `name`, `saltedpasswordhash`) VALUES (?, ?, ?);", dbname, dbtable)
-var psCheckName = fmt.Sprintf("SELECT EXISTS(SELECT * FROM `%v`.`%v` WHERE name = ?);", dbname, dbtable)
-var psCheckAuth = fmt.Sprintf("SELECT saltedpasswordhash, banned FROM `%v`.`%v` WHERE name = ?;", dbname, dbtable)
-
+var psCheckName = fmt.Sprintf("SELECT EXISTS(SELECT * FROM `%v`.`%v` WHERE `name` = ?);", dbname, dbtable)
+var psCheckAuth = fmt.Sprintf("SELECT `saltedpasswordhash`, `banned` FROM `%v`.`%v` WHERE `name` = ?;", dbname, dbtable)
+var psGetTopN = fmt.Sprintf("SELECT FIND_IN_SET(`wins`, (SELECT GROUP_CONCAT(`wins` ORDER BY `wins` DESC) FROM `%[1]v`.`%[2]v`)) AS `rank`, `name`, `wins`, IFNULL(`winratio`, 0) AS `winratio`, `draws`, `losses`, `played` FROM `%[1]v`.`%[2]v` ORDER BY `rank` LIMIT ?;", dbname, dbtable)
+var psGetUser = fmt.Sprintf("SELECT FIND_IN_SET(`wins`, (SELECT GROUP_CONCAT(`wins` ORDER BY `wins` DESC) FROM `%[1]v`.`%[2]v`)) AS `rank`, `wins`, IFNULL(`winratio`, 0) AS `winratio`, `draws`, `losses`, `played` FROM `%[1]v`.`%[2]v` WHERE `name` = ?;", dbname, dbtable)
 var connString = fmt.Sprintf("%v:%v@(%v:%v)/%v?tls=skip-verify", dbuser, dbpass, dburl, dbport, dbname)
 
 // Init should be called at the start of the function to open a connection to the database
@@ -48,7 +51,7 @@ func Init() {
 
 // CreateUser creates a user account
 func CreateUser(username string, password string) (err error) {
-	exists, err := nameIsAlreadyInUse(username)
+	exists, err := UserExists(username)
 	if err != nil {
 		return err
 	}
@@ -116,6 +119,79 @@ func ProcessAuth(headers map[string]string) (status int, msg string) {
 	return status, msg
 }
 
+// UserExists returns true if the user exists
+func UserExists(username string) (exists bool, err error) {
+	statement, err := db.Prepare(psCheckName)
+	if err != nil {
+		return false, err
+	}
+
+	defer statement.Close()
+
+	err = statement.QueryRow(username).Scan(&exists)
+
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+// GetLeaderboard returns the leaderboard info, asligned with the specified user and capped to n results
+func GetLeaderboard(username string, maxResults int) (leaderboard types.Leaderboard, err error) {
+	statement, err := db.Prepare(psGetUser)
+	if err != nil {
+		return leaderboard, err
+	}
+
+	defer statement.Close()
+
+	var (
+		name   string
+		rank   int
+		wins   int
+		ratio  float32
+		draws  int
+		losses int
+		played int
+	)
+
+	err = statement.QueryRow(username).Scan(&rank, &wins, &ratio, &draws, &losses, &played)
+
+	if err != nil {
+		return leaderboard, err
+	}
+
+	leaderboard.User.Fill(username, rank, wins, ratio, draws, losses, played)
+
+	statement, err = db.Prepare(psGetTopN)
+	if err != nil {
+		return leaderboard, err
+	}
+
+	defer statement.Close()
+	rows, err := statement.Query(maxResults)
+	if err != nil {
+		return leaderboard, err
+	}
+
+	leaderboard.Leaderboard = make([]types.LeaderboardRow, 0)
+
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&rank, &name, &wins, &ratio, &draws, &losses, &played)
+		if err != nil {
+			return leaderboard, err
+		}
+
+		var row = types.LeaderboardRow{}
+		row.Fill(name, rank, wins, ratio, draws, losses, played)
+		leaderboard.Leaderboard = append(leaderboard.Leaderboard, row)
+	}
+
+	return leaderboard, err
+}
+
 func validateCredentials(username string, password string) (valid bool, err error) {
 	statement, err := db.Prepare(psCheckAuth)
 	if err != nil {
@@ -138,21 +214,4 @@ func validateCredentials(username string, password string) (valid bool, err erro
 	valid, err = argon2id.ComparePasswordAndHash(password, saltyhash)
 
 	return valid, nil
-}
-
-func nameIsAlreadyInUse(username string) (exists bool, err error) {
-	statement, err := db.Prepare(psCheckName)
-	if err != nil {
-		return false, err
-	}
-
-	defer statement.Close()
-
-	err = statement.QueryRow(username).Scan(&exists)
-
-	if err != nil && err != sql.ErrNoRows {
-		return false, err
-	}
-
-	return exists, nil
 }

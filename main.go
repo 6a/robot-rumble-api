@@ -16,6 +16,8 @@ func router(ctx context.Context, request events.APIGatewayProxyRequest) (r types
 		return routes.ValidateAuth(ctx, request)
 	case "PUT":
 		return routes.CreateAccount(ctx, request)
+	case "POST":
+		return routes.GetLeaderboard(ctx, request)
 	}
 
 	r.StatusCode = 500
@@ -34,11 +36,12 @@ func main() {
 	// ev.Headers["Authorization"] = "Basic NmE6YW5pbWFsMQ=="
 	// res, err := routes.ValidateAuth(nil, ev)
 
-	// ev.Body = `{"name": "6a","password": "animal1"}`
-	// res, err := routes.CreateAccount(nil, ev)
+	// ev.Body = `{"name": "6a"}`
+	// res, err := routes.GetLeaderboard(nil, ev)
 
 	// if err != nil {
 	// 	fmt.Println(err)
 	// }
+
 	// fmt.Println(res)
 }

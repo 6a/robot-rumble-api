@@ -1,0 +1,1 @@
+$env:GOOS = "linux"; go build -o main main.go; build-lambda-zip.exe --output main.zip main;
