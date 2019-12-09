@@ -37,6 +37,7 @@ var psCheckName = fmt.Sprintf("SELECT EXISTS(SELECT * FROM `%v`.`%v` WHERE `name
 var psCheckAuth = fmt.Sprintf("SELECT `saltedpasswordhash`, `banned` FROM `%v`.`%v` WHERE `name` = ?;", dbname, dbtable)
 var psGetTopN = fmt.Sprintf("SELECT FIND_IN_SET(`wins`, (SELECT GROUP_CONCAT(`wins` ORDER BY `wins` DESC) FROM `%[1]v`.`%[2]v`)) AS `rank`, `name`, `wins`, IFNULL(`winratio`, 0) AS `winratio`, `draws`, `losses`, `played` FROM `%[1]v`.`%[2]v` ORDER BY `rank` LIMIT ?;", dbname, dbtable)
 var psGetUser = fmt.Sprintf("SELECT FIND_IN_SET(`wins`, (SELECT GROUP_CONCAT(`wins` ORDER BY `wins` DESC) FROM `%[1]v`.`%[2]v`)) AS `rank`, `wins`, IFNULL(`winratio`, 0) AS `winratio`, `draws`, `losses`, `played` FROM `%[1]v`.`%[2]v` WHERE `name` = ?;", dbname, dbtable)
+var psUpdateUser = fmt.Sprintf("UPDATE `%v`.`%v` SET `wins` = (`wins` + ?), `draws` = (`draws` + ?), `losses` = (`losses` + ?) WHERE `name` = ?;", dbname, dbtable)
 var connString = fmt.Sprintf("%v:%v@(%v:%v)/%v?tls=skip-verify", dbuser, dbpass, dburl, dbport, dbname)
 
 // Init should be called at the start of the function to open a connection to the database
@@ -80,7 +81,7 @@ func CreateUser(username string, password string) (err error) {
 }
 
 // ProcessAuth processed a request to see if the authentication is valid
-func ProcessAuth(headers map[string]string) (status int, msg string) {
+func ProcessAuth(headers map[string]string) (status int, msg string, username string) {
 	if authHeader, ok := headers["Authorization"]; ok {
 		decodedHeader, err := base64.StdEncoding.DecodeString(strings.Replace(authHeader, "Basic ", "", 1))
 		if err != nil {
@@ -93,6 +94,7 @@ func ProcessAuth(headers map[string]string) (status int, msg string) {
 				msg = "Auth header invalid format"
 			} else {
 				valid, err := validateCredentials(credentials[0], credentials[1])
+				username = credentials[0]
 				if err != nil {
 					if err == sql.ErrNoRows {
 						status = 403
@@ -116,7 +118,7 @@ func ProcessAuth(headers map[string]string) (status int, msg string) {
 		msg = "Missing 'Authorization' header"
 	}
 
-	return status, msg
+	return status, msg, username
 }
 
 // UserExists returns true if the user exists
@@ -190,6 +192,23 @@ func GetLeaderboard(username string, maxResults int) (leaderboard types.Leaderbo
 	}
 
 	return leaderboard, err
+}
+
+// Update updates the user specified in the input data with the deltas also specified in the input data
+func Update(indata types.UserUpdateRequest) (err error) {
+	statement, err := db.Prepare(psUpdateUser)
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	_, err = statement.Exec(indata.Wins, indata.Draws, indata.Losses, indata.Name)
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func validateCredentials(username string, password string) (valid bool, err error) {

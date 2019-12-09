@@ -6,6 +6,14 @@ type UserCreationRequest struct {
 	Password string `json:"password"`
 }
 
+// UserUpdateRequest is a set of deltas used to update the w/d/l for the specified player
+type UserUpdateRequest struct {
+	Name   string `json:"name"`
+	Wins   int    `json:"wins"`
+	Draws  int    `json:"draws"`
+	Losses int    `json:"losses"`
+}
+
 // LeaderboardRequest describes the data needed get the leaderboard info , aligned with the specified user
 type LeaderboardRequest struct {
 	Name string `json:"name"`

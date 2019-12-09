@@ -18,6 +18,8 @@ func router(ctx context.Context, request events.APIGatewayProxyRequest) (r types
 		return routes.CreateAccount(ctx, request)
 	case "POST":
 		return routes.GetLeaderboard(ctx, request)
+	case "PATCH":
+		return routes.Update(ctx, request)
 	}
 
 	r.StatusCode = 500
@@ -28,20 +30,21 @@ func router(ctx context.Context, request events.APIGatewayProxyRequest) (r types
 
 func main() {
 	database.Init()
-	lambda.Start(router)
 
 	// ev := events.APIGatewayProxyRequest{}
 	// ev.Headers = make(map[string]string)
 
 	// ev.Headers["Authorization"] = "Basic NmE6YW5pbWFsMQ=="
-	// res, err := routes.ValidateAuth(nil, ev)
 
-	// ev.Body = `{"name": "6a"}`
-	// res, err := routes.GetLeaderboard(nil, ev)
+	// ev.Body = `{"name": "6a", "wins": 55, "draws": 0, "losses": 0}`
+
+	// res, err := routes.Update(nil, ev)
 
 	// if err != nil {
 	// 	fmt.Println(err)
 	// }
 
 	// fmt.Println(res)
+
+	lambda.Start(router)
 }

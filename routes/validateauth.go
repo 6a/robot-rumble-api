@@ -10,7 +10,7 @@ import (
 
 // ValidateAuth validates credentials
 func ValidateAuth(ctx context.Context, request events.APIGatewayProxyRequest) (r types.Response, err error) {
-	r.StatusCode, r.Message = database.ProcessAuth(request.Headers)
+	r.StatusCode, r.Message, _ = database.ProcessAuth(request.Headers)
 
 	return r, nil
 }

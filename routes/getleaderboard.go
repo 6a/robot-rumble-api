@@ -13,18 +13,18 @@ const maxRows = 100
 
 // GetLeaderboard gets the top N players in the leaderboard as well as an extra blob containing the stats for a particular user
 func GetLeaderboard(ctx context.Context, request events.APIGatewayProxyRequest) (r types.Response, err error) {
-	ucr := types.LeaderboardRequest{}
-	err = json.Unmarshal([]byte(request.Body), &ucr)
+	lr := types.LeaderboardRequest{}
+	err = json.Unmarshal([]byte(request.Body), &lr)
 	if err != nil {
 		r.StatusCode = 400
 		r.Message = err.Error()
 	} else {
-		userexists, _ := database.UserExists(ucr.Name)
+		userexists, _ := database.UserExists(lr.Name)
 		if !userexists {
 			r.StatusCode = 404
 			r.Message = "The specified user does not exist"
 		} else {
-			leaderboard, err := database.GetLeaderboard(ucr.Name, maxRows)
+			leaderboard, err := database.GetLeaderboard(lr.Name, maxRows)
 			if err != nil {
 				r.StatusCode = 400
 				r.Message = err.Error()
