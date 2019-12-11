@@ -62,18 +62,5 @@ func router(ctx context.Context, request events.APIGatewayProxyRequest) (r types
 
 func main() {
 	database.Init()
-
-	// ev.Headers["Authorization"] = "Basic NmE6YW5pbWFsMQ=="
-
-	// ev.Body = `{"name": "6a", "wins": 55, "draws": 0, "losses": 0}`
-
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// fmt.Println(res)
-
-	// createRandom(4)
-
 	lambda.Start(router)
 }
